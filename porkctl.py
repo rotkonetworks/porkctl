@@ -5,6 +5,7 @@ import click
 from getpass import getpass
 from pkb_client.client import PKBClient, SUPPORTED_DNS_RECORD_TYPES
 import tldextract
+import ipaddress
 
 SERVICE_ID = 'porkctl'
 
@@ -19,6 +20,11 @@ def auth():
     pass
 
 
+class LoginError(Exception):
+    """Raised when there's an issue logging in"""
+    pass
+
+
 @auth.command()
 def login():
     apikey = getpass('Enter your Porkbun API Key: ')
@@ -28,13 +34,13 @@ def login():
     client = PKBClient(apikey, apisecret)
     try:
         response = client.ping()
-        # Check if response is a valid IP address (it's a simplification, a full regex for IP check could be used)
-        if '.' not in response:
-            print('Invalid credentials. Please try again.')
-            return
+        # Check if response is a valid IP address
+        try:
+            ipaddress.ip_address(response)
+        except ValueError:
+            raise LoginError('Invalid credentials. Please try again.')
     except Exception as e:
-        print('Failed to verify credentials:', str(e))
-        return
+        raise LoginError(f'Failed to verify credentials: {str(e)}')
 
     # If we get here, the ping was successful, so we can store the credentials
     keyring.set_password(SERVICE_ID, 'apikey', apikey)
@@ -64,11 +70,17 @@ def dns():
 
 def get_credentials():
     """Load the saved credentials from the keyring"""
-    apikey = keyring.get_password(SERVICE_ID, 'apikey')
-    apisecret = keyring.get_password(SERVICE_ID, 'apisecret')
-    if apikey is None or apisecret is None:
-        raise Exception('Please login first with: ./porkctl.py auth login')
-    return apikey, apisecret
+    if not hasattr(get_credentials, '_cache'):
+        get_credentials._cache = {}
+    if 'apikey' not in get_credentials._cache:
+        get_credentials._cache['apikey'] = keyring.get_password(
+            SERVICE_ID, 'apikey')
+    if 'apisecret' not in get_credentials._cache:
+        get_credentials._cache['apisecret'] = keyring.get_password(
+            SERVICE_ID, 'apisecret')
+    if get_credentials._cache['apikey'] is None or get_credentials._cache['apisecret'] is None:
+        raise LoginError('Please login first with: ./porkctl.py auth login')
+    return get_credentials._cache['apikey'], get_credentials._cache['apisecret']
 
 
 def create_client():
@@ -119,21 +131,8 @@ def handle_api_call(call, success_message, failure_message):
 def create(name, type, data, ttl):
     """Create a new DNS record."""
 
-    # client = create_client()
-    # domain, subdomain = extract_domain_subdomain(name)
-    try:
-        apikey, apisecret = get_credentials()
-    except Exception as e:
-        print(e)
-        return
-
-    # Split the FQDN into subdomain and domain
-    ext = tldextract.extract(name)
-    subdomain = ext.subdomain
-    domain = '.'.join(part for part in [ext.domain, ext.suffix] if part)
-
-    # Create a client with these credentials
-    client = PKBClient(apikey, apisecret)
+    client = create_client()
+    domain, subdomain = extract_domain_subdomain(name)
 
     # Call the DNS create API
     try:
@@ -154,22 +153,11 @@ def create(name, type, data, ttl):
 def delete(name):
     """Delete a DNS record.
 
-    NAME: Full Record name (FQDN) of the DNS record to delete
+    DOMAIN: Full Record name (FQDN) of the DNS record to delete
     """
 
-    try:
-        apikey, apisecret = get_credentials()
-    except Exception as e:
-        print(e)
-        return
-
-    # Create a client with these credentials
-    client = PKBClient(apikey, apisecret)
-
-    # Split the FQDN into subdomain and domain
-    ext = tldextract.extract(name)
-    domain = '.'.join(part for part in [ext.domain, ext.suffix] if part)
-    _subdomain = ext.subdomain
+    client = create_client()
+    domain, _subdomain = extract_domain_subdomain(name)
 
     # Call the DNS retrieve API to get the record ID
     try:
@@ -196,14 +184,7 @@ def delete(name):
 def list(name):
     """List all DNS records for a given domain."""
 
-    try:
-        apikey, apisecret = get_credentials()
-    except Exception as e:
-        print(e)
-        return
-
-    # Create a client with these credentials
-    client = PKBClient(apikey, apisecret)
+    client = create_client()
 
     # Call the DNS retrieve API
     try:
@@ -228,19 +209,8 @@ def list(name):
 def update(record_id, name, type, data, ttl):
     """Update a DNS record."""
 
-    try:
-        apikey, apisecret = get_credentials()
-    except Exception as e:
-        print(e)
-        return
-
-    # Split the FQDN into subdomain and domain
-    ext = tldextract.extract(name)
-    subdomain = ext.subdomain
-    domain = '.'.join(part for part in ext if part)
-
-    # Create a client with these credentials
-    client = PKBClient(apikey, apisecret)
+    client = create_client()
+    domain, subdomain = extract_domain_subdomain(name)
 
     # Call the DNS update API
     try:
