@@ -98,31 +98,6 @@ def extract_domain_subdomain(name):
     return domain, subdomain
 
 
-def handle_api_call(call, success_message, failure_message):
-    try:
-        call()
-        print(success_message)
-    except Exception as e:
-        print(f'{failure_message}: {str(e)}')
-
-# def create(name, type, data, ttl):
-#     """Create a new DNS record."""
-#     client = create_client()
-#     domain, subdomain = extract_domain_subdomain(name)
-#
-#     handle_api_call(
-#         lambda: client.dns_create(
-#             domain=domain,
-#             name=subdomain,
-#             type=type,
-#             content=data,
-#             ttl=ttl
-#         ),
-#         f'Successfully created DNS record: {name}',
-#         'Failed to create DNS record'
-#     )
-
-
 @dns.command()
 @click.option('--name', prompt=True, type=str, help='Full Record name (FQDN)')
 @click.option('--type', prompt=True, type=click.Choice(SUPPORTED_DNS_RECORD_TYPES), help='Record type')
