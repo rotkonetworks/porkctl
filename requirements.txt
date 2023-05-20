@@ -8,6 +8,7 @@ importlib-metadata==6.6.0
 jaraco.classes==3.2.3
 jeepney==0.8.0
 keyring==23.13.1
+keyrings.alt==4.2.0
 more-itertools==9.1.0
 pkb-client==1.2
 pycparser==2.21
