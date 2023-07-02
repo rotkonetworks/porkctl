@@ -1,4 +1,6 @@
 keyring
+keyrings.alt
 click
 tldextract
 pkb-client
+

@@ -6,9 +6,13 @@ from getpass import getpass
 from pkb_client.client import PKBClient, SUPPORTED_DNS_RECORD_TYPES
 import tldextract
 import ipaddress
+import sys
 
 SERVICE_ID = 'porkctl'
 
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    import keyrings.alt.file
+    keyring.set_keyring(keyrings.alt.file.PlaintextKeyring())
 
 @click.group()
 def cli():
